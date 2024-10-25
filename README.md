@@ -9,12 +9,12 @@ Menu:
 * [Create data classes](#create-data-classes)
 * [Do the layout](#do-the-layout-)
   * [Scope creation](#scope-creation)
-  * [Other DSL things](#other-dsl-things)
   * [How to use androidx.compose.ui.layout.Layout](#how-to-use-androidxcomposeuilayoutlayout)
   * [Measure the preferred component size](#measure-the-preferred-component-size)
   * [Resolve components final size and location](#resolve-components-final-size-and-location)
   * [Force compose use computed size](#force-compose-use-computed-size)
   * [Place the components](#place-the-components)
+  * [The hidden issue and its correction](#the-hidden-issue-and-its-correction)
 * [Usage example](#usage-example)
 
 ## What is a table layout ?
@@ -79,17 +79,76 @@ class TableCell(val cellX: Int, val cellY: Int, width: Int = 1, height: Int = 1)
 
 ## Do the layout
 
+For create the layout, we well need a scope that store components constraints. 
+We want have something that look likes other layout. 
+That is something that looks like
+```kotlin
+TableLayout(modifier = modifer) {
+  Text("", 
+       modifier=Modifier.cell(x=2, y=2))
+
+  Button(modifier=Modifier.cell(cellX = 5, cellY = 6, width = 12, height = 23)) { 
+      Text("Click")
+  }
+}
+```
+
+For this, we will create a scope, is role will to make available the `cell` function and 
+store the TableCell information. 
+
+Here we face the first issue, composable are in function, not inside an object, 
+we don't have a hand on components draw by the composable function. 
+We will store the information in order they are declares, by chance the list wil will receive later
+in this tutorial have the same order, so we can match by using the index.
+
 * [Scope creation](#scope-creation)
-* [Other DSL things](#other-dsl-things)
 * [How to use androidx.compose.ui.layout.Layout](#how-to-use-androidxcomposeuilayoutlayout)
 * [Measure the preferred component size](#measure-the-preferred-component-size)
 * [Resolve components final size and location](#resolve-components-final-size-and-location)
 * [Force compose use computed size](#force-compose-use-computed-size)
 * [Place the components](#place-the-components)
+* [The hidden issue and its correction](#the-hidden-issue-and-its-correction)
 
 ### Scope creation
 
-### Other DSL things
+Since `TableLayoutScope` will be called in **DSL** way, we can add some loacl extensions.
+The first version of `TableLayoutScope` will be
+
+```kotlin
+import androidx.compose.ui.Modifier
+
+class TableLayoutScope
+{
+    internal val cells = ArrayList<TableCell>()
+
+    fun Modifier.cell(cellX: Int, cellY: Int, width: Int = 1, height: Int = 1)
+    {
+        this@TableLayoutScope.cells.add(TableCell(cellX, cellY, width, height))
+    }
+}
+```
+
+And the start of the `TableLayout` method is 
+
+```kotlin
+import androidx.compose.runtime.Composable
+import androidx.compose.ui.Modifier
+
+@Composable
+fun TableLayout(modifier: Modifier = Modifier, content: @Composable TableLayoutScope.() -> Unit)
+{
+    val scope = TableLayoutScope()
+    scope.content()
+
+    // TODO layout composable here
+}
+```
+
+It may look good, but as we will see in [How to use androidx.compose.ui.layout.Layout](#how-to-use-androidxcomposeuilayoutlayout)
+we will need change the lines before the comment.
+
+And in [The hidden issue and its correction](#the-hidden-issue-and-its-correction) their an hidden issue
+in `TableLayoutScope`, that will force us to add a trick.
 
 ### How to use androidx.compose.ui.layout.Layout
 
@@ -100,5 +159,7 @@ class TableCell(val cellX: Int, val cellY: Int, width: Int = 1, height: Int = 1)
 ### Force compose use computed size
 
 ### Place the components
+
+### The hidden issue and its correction
 
 ## Usage example
