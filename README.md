@@ -19,7 +19,16 @@ Menu:
 
 ## What is a table layout ?
 
-First les presents what we talk about
+Table layout is place components inside a grid. Let imagine the parent component is cut in grid like this :
+![Screen cut in grid](doc/EmptyScreen.png)
+
+The we can place components inside like this :
+![Screen with some component inside](doc/Exemple1.png)
+
+* The component 1 (in yellow) it top left corner is at (2, 30) and takes 9 x 2 cells
+* The component 2 (in green) it top left corner is at (4, 16) and takes 12 x 4 cells
+* The component 3 (in blue) it top left corner is at (0, 0) and takes 8 x 10 cells
+* The component 4 (in red) it top left corner is at (8, 0) and takes 5 x 14 cells
 
 ## Create data classes
 
