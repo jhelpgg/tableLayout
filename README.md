@@ -32,7 +32,52 @@ The we can place components inside like this :
 
 ## Create data classes
 
-## Do the layout 
+We will need to store the each components table cell information, for this we can create the class
+
+```kotlin
+class TableCell(val cellX: Int, val cellY: Int, val width: Int = 1, val height: Int = 1)
+```
+
+We will want avoid width and height under 1, so we change to
+
+```kotlin
+import kotlin.math.max
+
+class TableCell(val cellX: Int, val cellY: Int, width: Int = 1, height: Int = 1)
+{
+    val width = max(1, width)
+    val height = max(1, height)
+}
+```
+
+We will then after have to resolve the real location in parent and computed size. 
+This information can be internal since it will be used and computed be the table layout and 
+we don't want someone change them by accident.
+
+The class becomes :
+```kotlin
+import kotlin.math.max
+
+class TableCell(val cellX: Int, val cellY: Int, width: Int = 1, height: Int = 1)
+{
+    val width = max(1, width)
+    val height = max(1, height)
+    
+    /** Computed x in the screen*/
+    internal var x: Int = 0
+
+    /** Computed y in the screen*/
+    internal var y: Int = 0
+
+    /** Computed width in the screen*/
+    internal var realWidth: Int = 0
+
+    /** Computed height in the screen*/
+    internal var realHeight: Int = 0
+}
+```
+
+## Do the layout
 
 * [Scope creation](#scope-creation)
 * [Other DSL things](#other-dsl-things)
