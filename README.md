@@ -85,7 +85,7 @@ That is something that looks like
 ```kotlin
 TableLayout(modifier = modifer) {
   Text("", 
-       modifier=Modifier.cell(x=2, y=2))
+       modifier=Modifier.cell(cellX = 2, cellY = 2))
 
   Button(modifier=Modifier.cell(cellX = 5, cellY = 6, width = 12, height = 23)) { 
       Text("Click")
