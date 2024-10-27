@@ -219,6 +219,55 @@ Note :
 
 ### Measure the preferred component size
 
+The first thing to do is to get each components preferred size.
+We will store temporary the measured size in `realWidth` and `realHeight`
+
+```kotlin
+           measurePolicy = { measurables, constraints ->
+               val parentWidth = constraints.maxWidth
+               val parentHeight = constraints.maxHeight
+               
+               // Measure components preferred size
+               for ((index, measurable) in measurables.withIndex())
+               {
+                   val cell = scope.cells[index]
+
+                   cell.realWidth = measurable.maxIntrinsicWidth(parentWidth)
+                   cell.realHeight = measurable.maxIntrinsicHeight(parentHeight)
+               }
+
+               TODO()
+           })
+```
+
+To layout the component we will need a cell dimension.
+For this we compute the minimum and maximum cell position.
+
+```kotlin
+               val parentWidth = constraints.maxWidth
+               val parentHeight = constraints.maxHeight
+               var minCellX = Int.MAX_VALUE
+               var maxCellX = Int.MIN_VALUE
+               var minCellY = Int.MAX_VALUE
+               var maxCellY = Int.MIN_VALUE
+               
+               // Measure components preferred size
+               for ((index, measurable) in measurables.withIndex())
+               {
+                   val cell = scope.cells[index]
+
+                   cell.realWidth = measurable.maxIntrinsicWidth(parentWidth)
+                   cell.realHeight = measurable.maxIntrinsicHeight(parentHeight)
+                   minCellX = min(minCellX, cell.cellX)
+                   maxCellX = max(maxCellX, cell.cellX + cell.width)
+                   minCellY = min(minCellY, cell.cellY)
+                   maxCellY = max(maxCellY, cell.cellY + cell.height)
+               }
+
+                val cellWidth = if(maxCellX>minCellX)  parentWidth / (maxCellX - minCellX) else 1
+                val cellHeight = if(maxCellX>minCellY)  parentHeight /  (maxCellY - minCellY) else 1
+```
+
 ### Resolve components final size and location
 
 ### Force compose use computed size
