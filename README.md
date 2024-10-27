@@ -111,7 +111,7 @@ in this tutorial have the same order, so we can match by using the index.
 
 ### Scope creation
 
-Since `TableLayoutScope` will be called in **DSL** way, we can add some loacl extensions.
+Since `TableLayoutScope` will be called in **DSL** way, we can add some local extensions.
 The first version of `TableLayoutScope` will be
 
 ```kotlin
@@ -151,6 +151,71 @@ And in [The hidden issue and its correction](#the-hidden-issue-and-its-correctio
 in `TableLayoutScope`, that will force us to add a trick.
 
 ### How to use androidx.compose.ui.layout.Layout
+
+For layout the components we will use `androidx.compose.ui.layout.Layout`.
+
+So wil will write :
+
+```kotlin
+import androidx.compose.runtime.Composable
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.layout.Layout
+
+@Composable
+fun TableLayout(modifier: Modifier = Modifier, content: @Composable TableLayoutScope.() -> Unit)
+{
+    val scope = TableLayoutScope()
+    scope.content()
+
+    Layout(modifier = modifier, content = content,
+           measurePolicy = { measurables, constraints ->
+                TODO()
+           })
+}
+```
+
+But we notice that `content` can't be used for two reasons :
+* It is already called before, but we want it is called by layout with our scope
+* Thew function gives to Layout must also be `@UiComposable` for `Layout` work properly
+
+To solve this we change the code to
+
+```kotlin
+import androidx.compose.runtime.Composable
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.UiComposable
+import androidx.compose.ui.layout.Layout
+
+@Composable
+fun TableLayout(modifier: Modifier = Modifier, content: @Composable TableLayoutScope.() -> Unit)
+{
+    val scope = TableLayoutScope()
+
+    val layoutContent = @Composable @UiComposable {
+        scope.content()
+    }
+
+    Layout(modifier = modifier, content = layoutContent,
+           measurePolicy = { measurables, constraints ->
+               TODO()
+           })
+}
+```
+
+With this way, `content` used the scope and be called by layout since we give it a function to call.
+More over, we use it to have a `@Composabale` that is also a `@UiComposable`
+
+The lambda function gives to the `measurePolicy` parameter will do the layout.
+It have two values : 
+* `measurables` : List of components to measure (in their creation order). 
+  They are the composable defines in the `TableLayoutScope`
+* `constraints` : Are the parents constraints : that is to say the minimum and maximum size we can use
+
+The measure policy requires to return a `MeasureResult`, that contains the measured components.
+
+We will have it by call the `layout` method that will place components.
+Note :
+> `layout` method must be called only one time and in preference at last things do.
 
 ### Measure the preferred component size
 
