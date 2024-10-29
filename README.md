@@ -253,8 +253,8 @@ Note:
                for ((index, measurable) in measurables.withIndex())
                {
                    val cell = scope.cells[index]
-                   cell.realWidth = measurable.maxIntrinsicWidth(parentWidth)
-                   cell.realHeight = measurable.maxIntrinsicHeight(parentHeight)
+                   cell.preferredWidth = measurable.maxIntrinsicWidth(parentWidth)
+                   cell.preferredHeight = measurable.maxIntrinsicHeight(parentHeight)
                }
 ```
 
@@ -265,8 +265,8 @@ Note:
                for ((index, measurable) in measurables.withIndex())
                {
                    val cell = scope.cells[index]
-                   cell.realWidth = measurable.maxIntrinsicWidth(parentWidth)
-                   cell.realHeight = measurable.maxIntrinsicHeight(parentHeight)
+                   cell.preferredWidth = measurable.maxIntrinsicWidth(parentWidth)
+                   cell.preferredHeight = measurable.maxIntrinsicHeight(parentHeight)
                    minCellX = min(minCellX, cell.cellX)
                    maxCellX = max(maxCellX, cell.cellX + cell.width)
                    minCellY = min(minCellY, cell.cellY)
@@ -292,7 +292,79 @@ Now we can compute components location and dimension
 
 ### Force compose use computed size
 
+By default `Layout`will use the component preferred size. 
+But we want it use our computed size.
+To do so we will force it to measure components with our constraints.
+The trick is to not give compose a choice on giving it as minimum and maximum the value we want.
 
+```kotlin
+               // Force compose use computed size
+               for ((index, measurable) in measurables.withIndex())
+               {
+                   val cell = scope.cells[index]
+
+                   val placeable = measurable.measure(
+                       constraints.copy(
+                           minWidth = cell.realWidth,
+                           minHeight = cell.realHeight,
+                           maxWidth = cell.realWidth,
+                           maxHeight = cell.realHeight
+                                       )
+                                                     )
+               }
+```
+
+Note : 
+> we use a copy of the constraints with modification, 
+> because it is the most simple way to have an instance with the value we want. 
+
+For the last step we will need the computed `placeable` to place it.
+So we add this field to `TableCell` and store it this loop.
+
+```kotlin
+import androidx.compose.ui.layout.Placeable
+import kotlin.math.max
+
+class TableCell(val cellX: Int, val cellY: Int, width: Int = 1, height: Int = 1)
+{
+    val width = max(1, width)
+    val height = max(1, height)
+
+    /** Computed x in the screen*/
+    internal var x: Int = 0
+
+    /** Computed y in the screen*/
+    internal var y: Int = 0
+
+    /** Computed width in the screen*/
+    internal var realWidth: Int = 0
+
+    /** Computed height in the screen*/
+    internal var realHeight: Int = 0
+
+    /** Placeable to used for place the component*/
+    internal var placeable: Placeable? = null
+}
+```
+
+And the loop become :
+
+```kotlin
+               // Force compose use computed size
+               for ((index, measurable) in measurables.withIndex())
+               {
+                   val cell = scope.cells[index]
+
+                   cell.placeable= measurable.measure(
+                       constraints.copy(
+                           minWidth = cell.realWidth,
+                           minHeight = cell.realHeight,
+                           maxWidth = cell.realWidth,
+                           maxHeight = cell.realHeight
+                                       )
+                                                     )
+               }
+```
 
 ### Place the components
 

@@ -46,6 +46,21 @@ fun TableLayout(modifier: Modifier = Modifier, content: @Composable TableLayoutS
                    cell.realHeight = cellHeight * cell.height
                }
 
+               // Force compose use computed size
+               for ((index, measurable) in measurables.withIndex())
+               {
+                   val cell = scope.cells[index]
+
+                   cell.placeable= measurable.measure(
+                       constraints.copy(
+                           minWidth = cell.realWidth,
+                           minHeight = cell.realHeight,
+                           maxWidth = cell.realWidth,
+                           maxHeight = cell.realHeight
+                                       )
+                                                     )
+               }
+
                TODO()
            })
 }

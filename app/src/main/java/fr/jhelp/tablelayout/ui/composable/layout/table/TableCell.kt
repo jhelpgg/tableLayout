@@ -1,5 +1,6 @@
 package fr.jhelp.tablelayout.ui.composable.layout.table
 
+import androidx.compose.ui.layout.Placeable
 import kotlin.math.max
 
 class TableCell(val cellX: Int, val cellY: Int, width: Int = 1, height: Int = 1)
@@ -18,4 +19,7 @@ class TableCell(val cellX: Int, val cellY: Int, width: Int = 1, height: Int = 1)
 
     /** Computed height in the screen*/
     internal var realHeight: Int = 0
+
+    /** Placeable to used for place the component*/
+    internal var placeable: Placeable? = null
 }
