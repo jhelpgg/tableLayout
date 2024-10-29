@@ -108,6 +108,7 @@ in this tutorial have the same order, so we can match by using the index.
 * [Force compose use computed size](#force-compose-use-computed-size)
 * [Place the components](#place-the-components)
 * [The hidden issue and its correction](#the-hidden-issue-and-its-correction)
+* [Optimisation](#optimisation)
 
 ### Scope creation
 
@@ -244,6 +245,36 @@ For this we compute the minimum and maximum cell position.
           val cellHeight = if (maxCellX > minCellY) parentHeight / (maxCellY - minCellY) else 1
 ```
 
+Note:
+> For some case you may need to have the components preferred size, 
+> to get them you can do :
+
+```kotlin
+               for ((index, measurable) in measurables.withIndex())
+               {
+                   val cell = scope.cells[index]
+                   cell.realWidth = measurable.maxIntrinsicWidth(parentWidth)
+                   cell.realHeight = measurable.maxIntrinsicHeight(parentHeight)
+               }
+```
+
+> With this you can store temporary the measured preferred size.
+> And if you want be clever you can use this loop to compute something else in same time like
+
+```kotlin
+               for ((index, measurable) in measurables.withIndex())
+               {
+                   val cell = scope.cells[index]
+                   cell.realWidth = measurable.maxIntrinsicWidth(parentWidth)
+                   cell.realHeight = measurable.maxIntrinsicHeight(parentHeight)
+                   minCellX = min(minCellX, cell.cellX)
+                   maxCellX = max(maxCellX, cell.cellX + cell.width)
+                   minCellY = min(minCellY, cell.cellY)
+                   maxCellY = max(maxCellY, cell.cellY + cell.height)
+               }
+```
+> By example
+
 ### Resolve components final size and location
 
 Now we can compute components location and dimension
@@ -261,8 +292,12 @@ Now we can compute components location and dimension
 
 ### Force compose use computed size
 
+
+
 ### Place the components
 
 ### The hidden issue and its correction
+
+### Optimisation
 
 ## Usage example
