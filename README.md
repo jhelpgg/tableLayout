@@ -368,6 +368,26 @@ And the loop become :
 
 ### Place the components
 
+The last step is to place components on computed coordinated.
+Like said in [How to use androidx.compose.ui.layout.Layout](#how-to-use-androidxcomposeuilayoutlayout)
+we will use the `layout` method
+
+```kotlin
+         //Place components
+         layout(parentWidth, parentHeight)
+         {
+            for (cell in scope.cells)
+            {
+              cell.placeable?.place(cell.x, cell.y)
+            }
+         }
+```
+
+We give in parameter the parent size, since we want it uses all the parent space.
+But if your layout is smaller (bigger is not recommended) than the parent space, it is possible tho give something else.
+
+To place the component just use the `place` method
+
 ### The hidden issue and its correction
 
 ### Optimisation

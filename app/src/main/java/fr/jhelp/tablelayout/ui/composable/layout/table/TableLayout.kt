@@ -61,6 +61,13 @@ fun TableLayout(modifier: Modifier = Modifier, content: @Composable TableLayoutS
                                                      )
                }
 
-               TODO()
+               //Place components
+               layout(parentWidth, parentHeight)
+               {
+                   for (cell in scope.cells)
+                   {
+                       cell.placeable?.place(cell.x, cell.y)
+                   }
+               }
            })
 }
