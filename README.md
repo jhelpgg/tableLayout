@@ -419,7 +419,7 @@ TableLayout(modifier = modifier) {
 ```
 
 We get what we expect:
-![Application screen shot](doc/Exemple1.png)
+![Application screen shot](doc/Example_1.png)
 
 But if we change the code on
 
