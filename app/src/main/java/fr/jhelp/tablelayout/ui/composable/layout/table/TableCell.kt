@@ -1,8 +1,10 @@
 package fr.jhelp.tablelayout.ui.composable.layout.table
 
+import androidx.compose.runtime.Stable
 import androidx.compose.ui.layout.Placeable
 
-internal class TableCell(val cellX: Int, val cellY: Int, val width: Int, val height: Int)
+@Stable
+internal data class TableCell(val cellX: Int, val cellY: Int, val width: Int, val height: Int)
 {
     /** Computed x in the screen*/
     var x: Int = 0
