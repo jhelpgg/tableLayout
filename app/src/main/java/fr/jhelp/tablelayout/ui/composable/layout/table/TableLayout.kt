@@ -1,5 +1,6 @@
 package fr.jhelp.tablelayout.ui.composable.layout.table
 
+import android.util.Log
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.UiComposable
@@ -18,6 +19,8 @@ fun TableLayout(modifier: Modifier = Modifier, content: @Composable TableLayoutS
 
     Layout(modifier = modifier, content = layoutContent,
            measurePolicy = { measurables, constraints ->
+               scope.seal()
+
                // Compute cell dimension
                val parentWidth = constraints.maxWidth
                val parentHeight = constraints.maxHeight

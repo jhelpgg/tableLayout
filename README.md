@@ -158,20 +158,17 @@ For layout the components we will use `androidx.compose.ui.layout.Layout`.
 So wil will write :
 
 ```kotlin
-import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.layout.Layout
 
-@Composable
-fun TableLayout(modifier: Modifier = Modifier, content: @Composable TableLayoutScope.() -> Unit)
+class TableLayoutScope
 {
-    val scope = TableLayoutScope()
-    scope.content()
+  internal val cells = ArrayList<TableCell>()
 
-    Layout(modifier = modifier, content = content,
-           measurePolicy = { measurables, constraints ->
-                TODO()
-           })
+  fun Modifier.cell(cellX: Int, cellY: Int, width: Int = 1, height: Int = 1) : Modifier
+  {
+    this@TableLayoutScope.cells.add(TableCell(cellX, cellY, width, height))
+    return this
+  }
 }
 ```
 
@@ -390,6 +387,430 @@ To place the component just use the `place` method
 
 ### The hidden issue and its correction
 
+If we try this
+
+```kotlin
+    var visible: Boolean by remember { mutableStateOf(false) }
+
+    TableLayout(modifier = modifier) {
+        Text(text = "Hello $name!",
+             modifier = Modifier.background(Color.Red).cell(0, 0, 2, 1))
+
+        Text(text = "Small text",
+             modifier = Modifier.background(Color.Blue).cell(0, 1))
+
+        Button(modifier = Modifier.background(Color.Green).cell(1, 1),
+               onClick = { visible = visible.not() }) {
+            Text(text = "Click me")
+        }
+    }
+```
+
+We get what we expect:
+![Application screen shot](doc/Exemple1.png)
+
+But if we change the code on
+
+```kotlin
+    var visible: Boolean by remember { mutableStateOf(true) }
+
+    TableLayout(modifier = modifier) {
+        Text(text = "Hello $name!",
+             modifier = Modifier
+                 .background(Color.Red)
+                 .cell(0, 0, 2, 1))
+
+        if (visible)
+        {
+            Text(text = "Small text",
+                 modifier = Modifier
+                     .background(Color.Blue)
+                     .cell(0, 1))
+        }
+
+        Button(modifier = Modifier
+            .background(Color.Green)
+            .cell(1, 1),
+               onClick = { visible = visible.not() }) {
+            Text(text = "Click me")
+        }
+    }
+```
+
+When we click on the button instead of hide the **Small Text** it crash with the error
+`java.lang.IllegalStateException: Place was called on a node which was placed already`
+
+Other remarks is if we do 
+
+```kotlin
+    var visible: Boolean by remember { mutableStateOf(true) }
+
+    TableLayout(modifier = modifier) {
+        Text(text = "Hello $name!",
+             modifier = Modifier
+                 .background(Color.Red)
+                 .cell(0, 0, 2, 1))
+
+        
+            Text(text = "Small text",
+                 modifier = Modifier
+                     .background(Color.Blue)
+                     .cell(0,  1, 
+                           1, if(visible) 1 else 2))
+
+        Button(modifier = Modifier
+            .background(Color.Green)
+            .cell(1, 1),
+               onClick = { visible = visible.not() }) {
+            Text(text = "Click me")
+        }
+    }
+```
+
+Click on the button does nothing instead of change the layout.
+
+To understand what happen, first keep the last version, and put some logs.
+
+To be sure visible is changed, and able to track tests more easily we had log for `visible` state.
+
+```kotlin
+    var visible: Boolean by remember { mutableStateOf(true) }
+    Log.d("REMOVE_ME", "---- visible = $visible ----")
+```
+
+Then in `TableLayoutScope` in method cell 
+
+```kotlin
+import android.util.Log
+import androidx.compose.ui.Modifier
+
+class TableLayoutScope
+{
+    internal val cells = ArrayList<TableCell>()
+
+    fun Modifier.cell(cellX: Int, cellY: Int, width: Int = 1, height: Int = 1): Modifier
+    {
+        this@TableLayoutScope.cells.add(TableCell(cellX, cellY, width, height))
+        Log.d("REMOVE_ME", "cells size =${this@TableLayoutScope.cells.size} because cell added : $cellX, $cellY, $width, $height ")
+        return this
+    }
+}
+```
+
+Log we have after launch :
+
+```text
+REMOVE_ME               fr.jhelp.tablelayout                 D  ---- visible = true ----
+REMOVE_ME               fr.jhelp.tablelayout                 D  cells size =1 because cell added : 0, 0, 2, 1 
+REMOVE_ME               fr.jhelp.tablelayout                 D  cells size =2 because cell added : 0, 1, 1, 1 
+REMOVE_ME               fr.jhelp.tablelayout                 D  cells size =3 because cell added : 1, 1, 1, 1 
+```
+
+That what we expected, now click on button :
+
+```text
+REMOVE_ME               fr.jhelp.tablelayout                 D  ---- visible = false ----
+REMOVE_ME               fr.jhelp.tablelayout                 D  cells size =4 because cell added : 0, 0, 2, 1 
+REMOVE_ME               fr.jhelp.tablelayout                 D  cells size =5 because cell added : 0, 1, 1, 2 
+REMOVE_ME               fr.jhelp.tablelayout                 D  cells size =6 because cell added : 1, 1, 1, 1 
+```
+
+Cells constraints are correct, but we notice that cells array have grow, it was not start from zero.
+But in `TableLayout` we do 
+
+```kotlin
+    val scope = TableLayoutScope()
+
+    val layoutContent = @Composable @UiComposable {
+        scope.content()
+    }
+```
+
+So we could think that a new instance of `TableLayoutScope` is created each time. 
+But in fact compose optimize the code at compilation, it changed. The code executed is not the one we typed.
+That implies in the optimization phase, compose will store the instance of `TableLayoutScope` one time 
+and reuse it.
+
+With this information, we will change `TableLayoutScope` to force to start at zero the cell array at each compose.
+For this we need to know when components are finished to be added.
+For this we add a method in `TableLayoutScope` and call it in `TableLayout`method.
+
+```kotlin
+import android.util.Log
+import androidx.compose.ui.Modifier
+
+class TableLayoutScope
+{
+    internal val cells = ArrayList<TableCell>()
+
+    fun Modifier.cell(cellX: Int, cellY: Int, width: Int = 1, height: Int = 1): Modifier
+    {
+        this@TableLayoutScope.cells.add(TableCell(cellX, cellY, width, height))
+        Log.d("REMOVE_ME", "cells size =${this@TableLayoutScope.cells.size} because cell added : $cellX, $cellY, $width, $height ")
+        return this
+    }
+    
+    fun seal()
+    {
+    }
+}
+```
+
+```kotlin
+@Composable
+fun TableLayout(modifier: Modifier = Modifier, content: @Composable TableLayoutScope.() -> Unit)
+{
+    val scope = TableLayoutScope()
+
+    val layoutContent = @Composable @UiComposable {
+        scope.content()
+        scope.seal()
+    }
+
+    // ...
+}
+```
+
+Now we have a method called when content is draw.
+
+```kotlin
+import android.util.Log
+import androidx.compose.ui.Modifier
+
+class TableLayoutScope
+{
+    private var index = 0
+    private var maximumIndex = Int.MAX_VALUE
+    internal val cells = ArrayList<TableCell>()
+
+    fun Modifier.cell(cellX: Int, cellY: Int, width: Int = 1, height: Int = 1): Modifier
+    {
+        if(this@TableLayoutScope.index>=this@TableLayoutScope.maximumIndex)
+        {
+            this@TableLayoutScope.index = 0
+        }
+        
+        val cell = TableCell(cellX, cellY, width, height)
+        
+        if( this@TableLayoutScope.index >= this@TableLayoutScope.cells.size)
+        {
+            this@TableLayoutScope.cells.add(cell)    
+        }
+        else
+        {
+            this@TableLayoutScope.cells[this@TableLayoutScope.index] = cell
+        }
+        
+        this@TableLayoutScope.index ++
+        Log.d("REMOVE_ME", "size=${this@TableLayoutScope.cells.size} index=${this@TableLayoutScope.index} / ${this@TableLayoutScope.maximumIndex}")
+        return this
+    }
+    
+    fun seal()
+    {
+        this.maximumIndex = this.index
+    }
+}
+```
+
+If we launch the test, now this list size is still 3 and we reuse elements. But visually nothing change.
+To solve this we will use a list that compose will notice its change. 
+And to avoid infinite loop composition, we update the cell only if there real change.
+
+```kotlin
+import android.util.Log
+import androidx.compose.runtime.mutableStateListOf
+import androidx.compose.ui.Modifier
+import kotlin.math.max
+
+class TableLayoutScope
+{
+    private var index = 0
+    private var maximumIndex = Int.MAX_VALUE
+    internal val cells = mutableStateListOf<TableCell>()
+
+    fun Modifier.cell(cellX: Int, cellY: Int, width: Int = 1, height: Int = 1): Modifier
+    {
+        val localWidth = max(1, width)
+        val localHeight = max(1, height)
+
+        if (this@TableLayoutScope.index >= this@TableLayoutScope.maximumIndex)
+        {
+            this@TableLayoutScope.index = 0
+        }
+
+        if (this@TableLayoutScope.index >= this@TableLayoutScope.cells.size)
+        {
+            this@TableLayoutScope.cells.add(TableCell(cellX, cellY, localWidth, localHeight))
+        }
+        else
+        {
+            val cell = this@TableLayoutScope.cells[this@TableLayoutScope.index]
+
+            if (cell.cellX != cellX || cell.cellY != cellY || cell.width != localWidth || cell.height != localHeight)
+            {
+                this@TableLayoutScope.cells[this@TableLayoutScope.index] = TableCell(cellX, cellY, localWidth, localHeight)
+            }
+        }
+
+        this@TableLayoutScope.index++
+        Log.d("REMOVE_ME", "size=${this@TableLayoutScope.cells.size} index=${this@TableLayoutScope.index} / ${this@TableLayoutScope.maximumIndex} : cell=$cellX, $cellY : $width x $height")
+        return this
+    }
+
+    fun seal()
+    {
+        this.maximumIndex = this.index
+        Log.d("REMOVE_ME", "seal : ${this.maximumIndex}")
+    }
+}
+```
+
+Now its work and logs becomes after button click :
+
+```text
+REMOVE_ME               fr.jhelp.tablelayout                 D  ---- visible = false ----
+REMOVE_ME               fr.jhelp.tablelayout                 D  size=3 index=1 / 3 : cell=0, 0 : 2 x 1
+REMOVE_ME               fr.jhelp.tablelayout                 D  size=3 index=2 / 3 : cell=0, 1 : 1 x 2
+REMOVE_ME               fr.jhelp.tablelayout                 D  size=3 index=3 / 3 : cell=1, 1 : 1 x 1
+REMOVE_ME               fr.jhelp.tablelayout                 D  cell=0, 0 : 1080 x 696
+REMOVE_ME               fr.jhelp.tablelayout                 D  cell=0, 696 : 540 x 1392
+REMOVE_ME               fr.jhelp.tablelayout                 D  cell=540, 696 : 540 x 696
+REMOVE_ME               fr.jhelp.tablelayout                 D  size=3 index=1 / 3 : cell=0, 0 : 2 x 1
+REMOVE_ME               fr.jhelp.tablelayout                 D  size=3 index=2 / 3 : cell=0, 1 : 1 x 2
+REMOVE_ME               fr.jhelp.tablelayout                 D  size=3 index=3 / 3 : cell=1, 1 : 1 x 1
+```
+
+As we see it is recompose two times, first to recompute components and second to realize their no change
+
+Now let test the previous crash version :
+
+```kotlin
+    var visible: Boolean by remember { mutableStateOf(true) }
+
+    TableLayout(modifier = modifier) {
+        Text(text = "Hello $name!",
+             modifier = Modifier
+                 .background(Color.Red)
+                 .cell(0, 0, 2, 1))
+
+        if (visible)
+        {
+            Text(text = "Small text",
+                 modifier = Modifier
+                     .background(Color.Blue)
+                     .cell(0, 1))
+        }
+
+        Button(modifier = Modifier
+            .background(Color.Green)
+            .cell(1, 1),
+               onClick = { visible = visible.not() }) {
+            Text(text = "Click me")
+        }
+    }
+```
+
+It stills crashing. Let find a solution.
+
+The error is `java.lang.IllegalStateException: Place was called on a node which was placed already`
+And our logs after click are :
+
+```text
+REMOVE_ME               fr.jhelp.tablelayout                 D  size=3 index=1 / 3 : cell=0, 0 : 2 x 1
+REMOVE_ME               fr.jhelp.tablelayout                 D  size=3 index=2 / 3 : cell=1, 1 : 1 x 1
+REMOVE_ME               fr.jhelp.tablelayout                 D  cell=0, 0 : 1080 x 1044
+REMOVE_ME               fr.jhelp.tablelayout                 D  cell=540, 1044 : 540 x 1044
+REMOVE_ME               fr.jhelp.tablelayout                 D  cell=540, 1044 : 540 x 1044
+```
+
+We see it collect two information for each modifier, but it tries to place three components.
+The behavior is logic since when visible is false there only 2 components call the `cell` function, 
+but the cell list is still sized 3 since it was 3 when it was visible.
+
+First we notice that `seal` method is not called, but the layout is called. 
+So move the `seal` call to make it called each time.
+
+```kotlin
+@Composable
+fun TableLayout(modifier: Modifier = Modifier, content: @Composable TableLayoutScope.() -> Unit)
+{
+    val scope = TableLayoutScope()
+
+    val layoutContent = @Composable @UiComposable {
+        scope.content()
+    }
+
+    Layout(modifier = modifier, content = layoutContent,
+           measurePolicy = { measurables, constraints ->
+               scope.seal()
+
+               // Compute cell dimension
+               val parentWidth = constraints.maxWidth
+               // ...
+           }
+}
+```
+
+Now we can check the seal method is called.
+Since it is called and before render, we have the real number of components at this time, we can change 
+`TableLayoutScope`
+
+```kotlin
+import android.util.Log
+import androidx.compose.runtime.mutableStateListOf
+import androidx.compose.ui.Modifier
+import kotlin.math.max
+
+class TableLayoutScope
+{
+    private var index = 0
+    internal val cells = mutableStateListOf<TableCell>()
+
+    fun Modifier.cell(cellX: Int, cellY: Int, width: Int = 1, height: Int = 1): Modifier
+    {
+        val localWidth = max(1, width)
+        val localHeight = max(1, height)
+
+        if (this@TableLayoutScope.index >= this@TableLayoutScope.cells.size)
+        {
+            this@TableLayoutScope.cells.add(TableCell(cellX, cellY, localWidth, localHeight))
+        }
+        else
+        {
+            val cell = this@TableLayoutScope.cells[this@TableLayoutScope.index]
+
+            if (cell.cellX != cellX || cell.cellY != cellY || cell.width != localWidth || cell.height != localHeight)
+            {
+                this@TableLayoutScope.cells[this@TableLayoutScope.index] =
+                    TableCell(cellX, cellY, localWidth, localHeight)
+            }
+        }
+
+        this@TableLayoutScope.index++
+        Log.d("REMOVE_ME",
+              "size=${this@TableLayoutScope.cells.size} index=${this@TableLayoutScope.index} : cell=$cellX, $cellY : $width x $height")
+        return this
+    }
+
+    fun seal()
+    {
+        Log.d("REMOVE_ME", "seal : size=${this.cells.size} index=${this.index}")
+
+        if (this.cells.size > this.index)
+        {
+            this.cells.subList(this.index, this.cells.size).clear()
+        }
+
+        this.index = 0
+    }
+}
+```
+
+And now it works perfectly
+
 ### Optimisation
+
+First step 
 
 ## Usage example
